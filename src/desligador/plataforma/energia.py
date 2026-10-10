@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import logging
 import subprocess
+from collections.abc import Callable
 from typing import Protocol
 
 log = logging.getLogger(__name__)
@@ -27,10 +28,17 @@ class Energia(Protocol):
 
 
 class EnergiaWindows:
-    """Usa o `shutdown.exe` do Windows."""
+    """Usa o `shutdown.exe` do Windows.
+
+    `executar` existe para os testes conferirem o comando sem rodá-lo de verdade.
+    """
+
+    def __init__(self, executar: Callable[..., subprocess.CompletedProcess] = subprocess.run):
+        self._rodar = executar
 
     def agendar_desligamento(self, segundos: int) -> None:
-        self._executar(["shutdown", "/s", "/t", str(segundos)])
+        # /f fecha os programas sem esperar: um arquivo não salvo não trava o desligamento.
+        self._executar(["shutdown", "/s", "/f", "/t", str(segundos)])
 
     def cancelar_desligamento(self) -> None:
         # Retorna erro quando não há desligamento pendente; isso não é um problema.
@@ -38,7 +46,7 @@ class EnergiaWindows:
 
     def _executar(self, comando: list[str], ignorar_erro: bool = False) -> None:
         log.debug("Executando %s", comando)
-        resultado = subprocess.run(
+        resultado = self._rodar(
             comando,
             capture_output=True,
             text=True,

@@ -152,7 +152,7 @@ el("form-personalizado").addEventListener("submit", (evento) => {
 });
 
 el("desligar-agora").addEventListener("click", () => {
-  if (confirm("Desligar o PC agora?")) {
+  if (confirm("Desligar o PC agora? Programas abertos serão fechados sem salvar.")) {
     executar("/api/desligar", { minutos: 0 }, "Desligando o PC…");
   }
 });
