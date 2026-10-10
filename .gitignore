@@ -1,0 +1,16 @@
+# Ambiente Python
+.venv/
+__pycache__/
+*.pyc
+*.egg-info/
+build/
+dist/
+
+# Ferramentas
+.pytest_cache/
+.ruff_cache/
+.vscode/
+
+# Segredos e logs (por padrão ficam em %APPDATA% / %LOCALAPPDATA%, mas por garantia)
+config.json
+*.log
