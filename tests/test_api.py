@@ -30,9 +30,11 @@ def api():
     servidor.server_close()
 
 
-def requisitar(url, corpo=None, bruto=None):
+def requisitar(url, corpo=None, bruto=None, cabecalhos=None):
     dados = bruto if bruto is not None else (None if corpo is None else json.dumps(corpo).encode())
-    pedido = urllib.request.Request(url, data=dados, headers={"Content-Type": "application/json"})
+    pedido = urllib.request.Request(
+        url, data=dados, headers={"Content-Type": "application/json", **(cabecalhos or {})}
+    )
     try:
         with urllib.request.urlopen(pedido, timeout=5) as resposta:
             return resposta.status, resposta.headers, resposta.read()
@@ -96,6 +98,41 @@ def test_json_invalido_retorna_400(api):
     url, _ = api
     status, _, _ = requisitar(url + "/api/desligar", bruto=b"{nao e json")
     assert status == 400
+
+
+@pytest.mark.parametrize("caminho", ["/", "/api/status"])
+def test_host_estranho_e_recusado_dns_rebinding(api, caminho):
+    url, _ = api
+    status, _, _ = requisitar(url + caminho, cabecalhos={"Host": "evil.com"})
+    assert status == 403
+
+
+def test_origin_estranho_e_recusado_csrf(api):
+    url, energia = api
+    status, _, _ = requisitar(
+        url + "/api/desligar", {"pin": PIN, "minutos": 0}, cabecalhos={"Origin": "http://evil.com"}
+    )
+    assert status == 403
+    assert energia.chamadas == []
+
+
+def test_post_sem_json_e_recusado_csrf(api):
+    url, energia = api
+    status, _, _ = requisitar(
+        url + "/api/desligar",
+        {"pin": PIN, "minutos": 0},
+        cabecalhos={"Content-Type": "text/plain"},
+    )
+    assert status == 415
+    assert energia.chamadas == []
+
+
+def test_origin_do_proprio_pc_e_aceito(api):
+    url, _ = api
+    status, _, _ = requisitar(
+        url + "/api/desligar", {"pin": PIN, "minutos": 30}, cabecalhos={"Origin": url}
+    )
+    assert status == 200
 
 
 def test_rota_desconhecida_retorna_404(api):

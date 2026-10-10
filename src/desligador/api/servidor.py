@@ -9,6 +9,7 @@ from pathlib import Path
 from urllib.parse import urlsplit
 
 from desligador.api import rotas
+from desligador.api.protecao import host_permitido, hosts_permitidos, origem_permitida
 from desligador.api.rotas import Dependencias, Resposta
 
 log = logging.getLogger(__name__)
@@ -40,6 +41,8 @@ def _arquivo_web(caminho: str) -> Path | None:
 
 
 def criar_servidor(host: str, porta: int, deps: Dependencias) -> ThreadingHTTPServer:
+    permitidos = hosts_permitidos(host)
+
     class Manipulador(BaseHTTPRequestHandler):
         server_version = "Desligador"
         sys_version = ""
@@ -51,10 +54,21 @@ def criar_servidor(host: str, porta: int, deps: Dependencias) -> ThreadingHTTPSe
             self._atender("POST")
 
         def _atender(self, metodo: str) -> None:
+            if not host_permitido(self.headers.get("Host"), permitidos):
+                log.warning("Host recusado: %r", self.headers.get("Host"))
+                self._enviar_json(Resposta(403, {"erro": "Host não permitido."}))
+                return
+
             caminho = urlsplit(self.path).path
             if metodo == "GET" and not caminho.startswith("/api/"):
                 self._enviar_arquivo(caminho)
                 return
+
+            if metodo == "POST":
+                recusa = self._validar_post()
+                if recusa:
+                    self._enviar_json(recusa)
+                    return
 
             tamanho = int(self.headers.get("Content-Length") or 0)
             if tamanho > TAMANHO_MAXIMO_CORPO:
@@ -62,6 +76,14 @@ def criar_servidor(host: str, porta: int, deps: Dependencias) -> ThreadingHTTPSe
                 return
             corpo = self.rfile.read(tamanho) if tamanho > 0 else b""
             self._enviar_json(rotas.tratar(metodo, caminho, corpo, self.client_address[0], deps))
+
+        def _validar_post(self) -> Resposta | None:
+            if not origem_permitida(self.headers.get("Origin"), permitidos):
+                log.warning("Origin recusado: %r", self.headers.get("Origin"))
+                return Resposta(403, {"erro": "Origem não permitida."})
+            if self.headers.get_content_type() != "application/json":
+                return Resposta(415, {"erro": "Envie o corpo como application/json."})
+            return None
 
         def _enviar_arquivo(self, caminho: str) -> None:
             arquivo = _arquivo_web(caminho)
