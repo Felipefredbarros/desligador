@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#0f172a">
+  <title>Desligador</title>
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" href="icone.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="estilo.css">
+  <script src="app.js" defer></script>
+</head>
+<body>
+  <main class="app">
+    <header class="topo">
+      <img src="icone.svg" alt="" width="36" height="36">
+      <h1>Desligador</h1>
+    </header>
+
+    <section class="cartao" aria-live="polite">
+      <p class="rotulo">Status</p>
+      <p class="status-texto" id="status-texto">Carregando…</p>
+      <p class="contagem" id="contagem" hidden></p>
+      <button class="botao secundario" id="cancelar" type="button" hidden>Cancelar desligamento</button>
+    </section>
+
+    <section class="cartao">
+      <label class="rotulo" for="pin">PIN</label>
+      <input id="pin" type="password" inputmode="numeric" pattern="[0-9]*"
+             autocomplete="current-password" placeholder="••••••••">
+      <label class="lembrar">
+        <input type="checkbox" id="lembrar"> Lembrar neste aparelho
+      </label>
+    </section>
+
+    <section class="cartao">
+      <p class="rotulo">Desligar em</p>
+      <div class="grade">
+        <button class="botao" type="button" data-minutos="15">15 min</button>
+        <button class="botao" type="button" data-minutos="30">30 min</button>
+        <button class="botao" type="button" data-minutos="60">1 h</button>
+        <button class="botao" type="button" data-minutos="120">2 h</button>
+      </div>
+      <form class="personalizado" id="form-personalizado">
+        <input id="minutos" type="number" min="1" max="1440" inputmode="numeric"
+               placeholder="Minutos" aria-label="Minutos personalizados">
+        <button class="botao" type="submit">Agendar</button>
+      </form>
+    </section>
+
+    <button class="botao perigo" id="desligar-agora" type="button">Desligar agora</button>
+    <p class="mensagem" id="mensagem" role="status"></p>
+  </main>
+</body>
+</html>
