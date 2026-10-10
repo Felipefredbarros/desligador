@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "desligador"
-version = "0.1.0"
+version = "0.2.0"
 description = "Desligue o PC com Windows pelo celular, com segurança, via Tailscale."
 readme = "README.md"
 license = "MIT"

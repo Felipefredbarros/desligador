@@ -3,6 +3,20 @@
 Todas as mudanças relevantes deste projeto são registradas aqui.
 Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e versionamento [SemVer](https://semver.org/lang/pt-BR/).
 
+## [0.2.0] - 2026-10-10
+
+### Segurança
+- Proteção contra CSRF e DNS rebinding: o servidor só aceita `Host`/`Origin` deste PC e POST em `application/json`.
+- O PIN passa a ser guardado como hash PBKDF2-SHA256 (600 mil iterações). Configs antigos são migrados automaticamente, mantendo o PIN.
+- Tempo limite de 10 s por conexão; `Content-Length` inválido retorna 400.
+
+### Adicionado
+- Comando `python -m desligador --trocar-pin`. O instalador pede o PIN na primeira instalação.
+
+### Alterado
+- O desligamento usa `shutdown /f`: programas abertos são fechados sem salvar, para nada travar o desligamento.
+- README sem emojis, com recomendações de segurança (2FA no Tailscale, expiração de chave, bloqueio de tela).
+
 ## [0.1.0] - 2026-10-10
 
 ### Adicionado
