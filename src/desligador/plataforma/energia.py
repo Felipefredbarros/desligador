@@ -1,0 +1,66 @@
+"""Executores de energia: quem de fato manda o Windows desligar.
+
+`EnergiaWindows` é a única classe do projeto que pode desligar o PC.
+Testes e o modo `--simular` usam `EnergiaFalsa`.
+"""
+
+from __future__ import annotations
+
+import logging
+import subprocess
+from typing import Protocol
+
+log = logging.getLogger(__name__)
+
+# Evita abrir uma janela de console quando o servidor roda com pythonw.exe.
+_SEM_JANELA = getattr(subprocess, "CREATE_NO_WINDOW", 0)
+
+
+class ErroEnergia(RuntimeError):
+    """O sistema operacional recusou o comando de energia."""
+
+
+class Energia(Protocol):
+    def agendar_desligamento(self, segundos: int) -> None: ...
+
+    def cancelar_desligamento(self) -> None: ...
+
+
+class EnergiaWindows:
+    """Usa o `shutdown.exe` do Windows."""
+
+    def agendar_desligamento(self, segundos: int) -> None:
+        self._executar(["shutdown", "/s", "/t", str(segundos)])
+
+    def cancelar_desligamento(self) -> None:
+        # Retorna erro quando não há desligamento pendente; isso não é um problema.
+        self._executar(["shutdown", "/a"], ignorar_erro=True)
+
+    def _executar(self, comando: list[str], ignorar_erro: bool = False) -> None:
+        log.debug("Executando %s", comando)
+        resultado = subprocess.run(
+            comando,
+            capture_output=True,
+            text=True,
+            errors="replace",
+            check=False,
+            creationflags=_SEM_JANELA,
+        )
+        if resultado.returncode != 0 and not ignorar_erro:
+            detalhe = resultado.stderr.strip() or f"código {resultado.returncode}"
+            raise ErroEnergia(f"O Windows recusou o comando: {detalhe}")
+
+
+class EnergiaFalsa:
+    """Registra os comandos em vez de executá-los. Nunca desliga nada."""
+
+    def __init__(self) -> None:
+        self.chamadas: list[tuple[str, int | None]] = []
+
+    def agendar_desligamento(self, segundos: int) -> None:
+        log.info("[simulação] desligaria em %s s", segundos)
+        self.chamadas.append(("agendar", segundos))
+
+    def cancelar_desligamento(self) -> None:
+        log.info("[simulação] cancelaria o desligamento")
+        self.chamadas.append(("cancelar", None))
