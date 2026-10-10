@@ -8,10 +8,11 @@ Celular (navegador)
    ▼
 Firewall do Windows (porta 8765 liberada só para 100.64.0.0/10)
    ▼
-api/servidor.py ............ HTTP, arquivos de web/, cabeçalhos de segurança
+api/servidor.py ............ HTTP, arquivos de web/, timeout, cabeçalhos de segurança
+   │   └── api/protecao.py ........ só aceita Host/Origin deste PC (CSRF, DNS rebinding)
    ▼
 api/rotas.py ............... JSON ⇄ serviços, exceção → status HTTP
-   ├──▶ servicos/autenticacao.py ..... PIN + bloqueio por IP
+   ├──▶ servicos/autenticacao.py ..... PIN × hash (dominio/pin.py) + bloqueio por IP
    └──▶ servicos/desligamento.py ..... agendar / cancelar / status
            ├──▶ dominio/agendamento.py ..... regras puras (minutos, horário)
            └──▶ plataforma/energia.py ...... EnergiaWindows → shutdown.exe
@@ -32,14 +33,22 @@ A troca de `EnergiaWindows` por `EnergiaFalsa` acontece só em `__main__.py` (fl
 ## Fluxo de uma requisição: “desligar em 30 min”
 
 1. O celular envia `POST /api/desligar` com `{"pin": "12345678", "minutos": 30}`.
-2. `servidor.py` limita o tamanho do corpo e repassa os bytes para `rotas.tratar`.
-3. `rotas.py` decodifica o JSON e chama a rota `desligar`.
-4. `ServicoAutenticacao.verificar` compara o PIN em tempo constante; erros seguidos bloqueiam o IP.
-5. `ServicoDesligamento.agendar` cria um `Agendamento`, que valida os minutos, cancela qualquer agendamento pendente e chama `Energia.agendar_desligamento(1800)`.
-6. `EnergiaWindows` executa `shutdown /s /t 1800`.
-7. A resposta traz o estado atual: `{"agendado": true, "desliga_em": "...", "segundos_restantes": 1800}`.
+2. `servidor.py` confere se o `Host` é deste PC (403 se não for). Por ser POST, confere também o `Origin` (403) e se o corpo é `application/json` (415).
+3. `servidor.py` valida o `Content-Length`, limita o corpo a 4 KB e repassa os bytes para `rotas.tratar`.
+4. `rotas.py` decodifica o JSON e chama a rota `desligar`.
+5. `ServicoAutenticacao.verificar` calcula o PBKDF2 do PIN e compara com o hash salvo em tempo constante; erros seguidos bloqueiam o IP.
+6. `ServicoDesligamento.agendar` cria um `Agendamento`, que valida os minutos, cancela qualquer agendamento pendente e chama `Energia.agendar_desligamento(1800)`.
+7. `EnergiaWindows` executa `shutdown /s /f /t 1800`.
+8. A resposta traz o estado atual: `{"agendado": true, "desliga_em": "...", "segundos_restantes": 1800}`.
 
 Erros conhecidos viram status HTTP em `rotas._STATUS_POR_ERRO`: 400 (entrada inválida), 401 (PIN), 429 (bloqueio), 500 (Windows recusou).
+
+### Por que validar Host, Origin e Content-Type
+O navegador obedece a qualquer página aberta. Sem essas checagens, um site malicioso poderia:
+- **CSRF:** enviar um POST "simples" (`text/plain`, sem preflight) para `http://127.0.0.1:8765` e tentar o PIN, ou errar de propósito até bloquear você;
+- **DNS rebinding:** fazer o próprio domínio apontar para `127.0.0.1` e conversar com o servidor como se fosse a mesma origem.
+
+Exigir JSON força o preflight CORS, que o servidor não atende. O `Origin` denuncia a página de origem, e o `Host` denuncia o domínio do atacante. Detalhes no [ADR 0004](decisoes/0004-pin-com-hash-e-protecao-csrf.md).
 
 ## Rede e inicialização
 
@@ -51,7 +60,7 @@ Erros conhecidos viram status HTTP em `rotas._STATUS_POR_ERRO`: 400 (entrada inv
 
 | O quê | Onde |
 |---|---|
-| Configuração (PIN, porta) | `%APPDATA%\Desligador\config.json` |
+| Configuração (hash do PIN, porta) | `%APPDATA%\Desligador\config.json` |
 | Log (rotativo, 3 × 1 MB) | `%LOCALAPPDATA%\Desligador\desligador.log` |
 
 ## Limitações conhecidas
