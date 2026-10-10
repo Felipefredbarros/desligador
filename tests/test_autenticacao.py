@@ -1,8 +1,10 @@
 import pytest
 
+from desligador.dominio.pin import gerar_hash
 from desligador.servicos.autenticacao import AcessoBloqueado, PinIncorreto, ServicoAutenticacao
 
 PIN = "12345678"
+PIN_HASH = gerar_hash(PIN, iteracoes=1_000)
 
 
 class Relogio:
@@ -20,7 +22,7 @@ def relogio():
 
 @pytest.fixture
 def auth(relogio):
-    return ServicoAutenticacao(PIN, max_erros=3, segundos_bloqueio=60, relogio=relogio)
+    return ServicoAutenticacao(PIN_HASH, max_erros=3, segundos_bloqueio=60, relogio=relogio)
 
 
 def test_pin_correto_passa(auth):

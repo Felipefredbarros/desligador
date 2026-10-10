@@ -2,12 +2,13 @@
 
 from __future__ import annotations
 
-import hmac
 import logging
 import threading
 import time
 from collections.abc import Callable
 from dataclasses import dataclass
+
+from desligador.dominio.pin import conferir
 
 log = logging.getLogger(__name__)
 
@@ -32,16 +33,20 @@ class _Tentativas:
 
 
 class ServicoAutenticacao:
-    """Compara PINs em tempo constante e bloqueia por origem (IP) após erros seguidos."""
+    """Confere o PIN contra o hash salvo e bloqueia por origem (IP) após erros seguidos.
+
+    A conferência fica dentro da trava de propósito: tentativas em paralelo não
+    conseguem passar do limite de erros antes do bloqueio.
+    """
 
     def __init__(
         self,
-        pin: str,
+        pin_hash: str,
         max_erros: int = 5,
         segundos_bloqueio: float = 5 * 60,
         relogio: Callable[[], float] = time.monotonic,
     ) -> None:
-        self._pin = pin.encode()
+        self._pin_hash = pin_hash
         self._max_erros = max_erros
         self._segundos_bloqueio = segundos_bloqueio
         self._relogio = relogio
@@ -57,7 +62,7 @@ class ServicoAutenticacao:
             if tentativas.bloqueado_ate > agora:
                 raise AcessoBloqueado(round(tentativas.bloqueado_ate - agora))
 
-            if isinstance(pin, str) and hmac.compare_digest(pin.encode(), self._pin):
+            if conferir(pin, self._pin_hash):
                 self._por_origem.pop(origem, None)
                 return
 

@@ -11,6 +11,7 @@ import pytest
 
 from desligador.api.rotas import Dependencias
 from desligador.api.servidor import criar_servidor
+from desligador.dominio.pin import gerar_hash
 from desligador.plataforma.energia import EnergiaFalsa
 from desligador.servicos.autenticacao import ServicoAutenticacao
 from desligador.servicos.desligamento import ServicoDesligamento
@@ -24,7 +25,7 @@ def api():
     energia = EnergiaFalsa()
     deps = Dependencias(
         desligamento=ServicoDesligamento(energia),
-        autenticacao=ServicoAutenticacao(PIN, max_erros=2),
+        autenticacao=ServicoAutenticacao(gerar_hash(PIN, iteracoes=1_000), max_erros=2),
     )
     servidor = criar_servidor("127.0.0.1", 0, deps, tempo_limite=TEMPO_LIMITE_TESTE)
     threading.Thread(target=servidor.serve_forever, daemon=True).start()

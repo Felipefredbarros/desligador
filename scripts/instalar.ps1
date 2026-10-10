@@ -4,9 +4,10 @@
     Faz o Desligador iniciar sozinho (sem janela) quando voce entra no Windows.
 
 .DESCRIPTION
-    1. Registra a tarefa "Desligador" no Agendador de Tarefas (gatilho: logon do usuario atual).
-    2. Cria regra de firewall liberando a porta apenas para a rede do Tailscale (100.64.0.0/10).
-    3. Inicia a tarefa e mostra o PIN e o endereco de acesso.
+    1. Na primeira instalacao, pede o PIN de acesso (so o hash fica salvo).
+    2. Registra a tarefa "Desligador" no Agendador de Tarefas (gatilho: logon do usuario atual).
+    3. Cria regra de firewall liberando a porta apenas para a rede do Tailscale (100.64.0.0/10).
+    4. Inicia a tarefa e mostra o endereco de acesso.
 
 .EXAMPLE
     powershell -ExecutionPolicy Bypass -File scripts\instalar.ps1
@@ -28,6 +29,13 @@ if (-not (Test-Path $pythonw)) {
     throw "pythonw.exe nao encontrado em '$pythonw'. Instale o Python pelo python.org."
 }
 Write-Host "    $pythonw"
+
+if (-not (Test-Path $ArquivoConfig)) {
+    Write-Host "==> Defina o PIN de acesso (so o hash fica salvo)..." -ForegroundColor Cyan
+    Push-Location $PastaSrc
+    try { & $python -m desligador --trocar-pin } finally { Pop-Location }
+    if ($LASTEXITCODE -ne 0) { throw "O PIN nao foi definido. Rode o instalador de novo." }
+}
 
 Write-Host "==> Registrando a tarefa '$NomeTarefa'..." -ForegroundColor Cyan
 $usuario = [System.Security.Principal.WindowsIdentity]::GetCurrent().Name
@@ -65,7 +73,7 @@ if (Get-Command tailscale -ErrorAction SilentlyContinue) {
 
 Write-Host ""
 Write-Host "Pronto! O Desligador vai iniciar sozinho sempre que voce entrar no Windows." -ForegroundColor Green
-Write-Host "  PIN:    $($config.pin)   (em $ArquivoConfig)"
+Write-Host "  PIN:      o que voce definiu. Para trocar: cd src; py -m desligador --trocar-pin"
 Write-Host "  Neste PC: http://localhost:$($config.porta)"
 if ($ipTailscale) {
     Write-Host "  Celular:  http://$($env:COMPUTERNAME.ToLower()):$($config.porta)  ou  http://${ipTailscale}:$($config.porta)"

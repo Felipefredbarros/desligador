@@ -9,7 +9,7 @@ import threading
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
 
-from desligador import __version__, config
+from desligador import __version__, config, trocar_pin
 from desligador.api.rotas import Dependencias
 from desligador.api.servidor import criar_servidor
 from desligador.plataforma.energia import EnergiaFalsa, EnergiaWindows
@@ -32,6 +32,9 @@ def _ler_argumentos(argv: list[str] | None) -> argparse.Namespace:
         type=Path,
         default=config.pasta_config() / "config.json",
         help="caminho do config.json (padrão: %%APPDATA%%\\Desligador\\config.json)",
+    )
+    parser.add_argument(
+        "--trocar-pin", action="store_true", help="define um novo PIN e sai (não inicia o servidor)"
     )
     parser.add_argument("--verbose", action="store_true", help="log detalhado")
     parser.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
@@ -83,18 +86,25 @@ def _aguardar_tailscale(porta: int, deps: Dependencias, parar: threading.Event) 
 
 def main(argv: list[str] | None = None) -> int:
     args = _ler_argumentos(argv)
+    if args.trocar_pin:
+        return trocar_pin.executar(args.config)
+
     arquivo_log = _configurar_log(args.verbose)
     log.info("Desligador %s iniciando (log em %s)", __version__, arquivo_log)
 
     try:
-        cfg, criada = config.carregar_ou_criar(args.config)
+        cfg, pin_gerado = config.carregar_ou_criar(args.config)
     except config.ConfigInvalida as erro:
         log.error("Configuração inválida: %s", erro)
         return 1
-    if criada:
-        log.info("Configuração criada em %s", args.config)
+    if pin_gerado:
+        log.warning(
+            "Configuração criada em %s com PIN aleatório. "
+            "Para definir o seu: py -m desligador --trocar-pin",
+            args.config,
+        )
         if sys.stdout is not None:
-            print(f"\nSeu PIN: {cfg.pin}  (guardado em {args.config})\n")
+            print(f"\nSeu PIN: {pin_gerado}  (anote: só o hash fica guardado)\n")
 
     energia = EnergiaFalsa() if args.simular else EnergiaWindows()
     if args.simular:
@@ -102,7 +112,7 @@ def main(argv: list[str] | None = None) -> int:
 
     deps = Dependencias(
         desligamento=ServicoDesligamento(energia),
-        autenticacao=ServicoAutenticacao(cfg.pin),
+        autenticacao=ServicoAutenticacao(cfg.pin_hash),
     )
 
     try:
