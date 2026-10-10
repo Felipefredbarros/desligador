@@ -1,6 +1,8 @@
 """Testes de ponta a ponta: sobe o servidor de verdade em 127.0.0.1 com EnergiaFalsa."""
 
+import http.client
 import json
+import socket
 import threading
 import urllib.error
 import urllib.request
@@ -14,6 +16,7 @@ from desligador.servicos.autenticacao import ServicoAutenticacao
 from desligador.servicos.desligamento import ServicoDesligamento
 
 PIN = "12345678"
+TEMPO_LIMITE_TESTE = 1  # segundos (o padrão do servidor é maior)
 
 
 @pytest.fixture
@@ -23,7 +26,7 @@ def api():
         desligamento=ServicoDesligamento(energia),
         autenticacao=ServicoAutenticacao(PIN, max_erros=2),
     )
-    servidor = criar_servidor("127.0.0.1", 0, deps)
+    servidor = criar_servidor("127.0.0.1", 0, deps, tempo_limite=TEMPO_LIMITE_TESTE)
     threading.Thread(target=servidor.serve_forever, daemon=True).start()
     yield f"http://127.0.0.1:{servidor.server_address[1]}", energia
     servidor.shutdown()
@@ -133,6 +136,27 @@ def test_origin_do_proprio_pc_e_aceito(api):
         url + "/api/desligar", {"pin": PIN, "minutos": 30}, cabecalhos={"Origin": url}
     )
     assert status == 200
+
+
+@pytest.mark.parametrize("tamanho", ["abc", "-5"])
+def test_content_length_invalido_retorna_400(api, tamanho):
+    url, _ = api
+    porta = int(url.rsplit(":", 1)[1])
+    conexao = http.client.HTTPConnection("127.0.0.1", porta, timeout=5)
+    conexao.putrequest("POST", "/api/desligar")
+    conexao.putheader("Content-Type", "application/json")
+    conexao.putheader("Content-Length", tamanho)
+    conexao.endheaders()
+    assert conexao.getresponse().status == 400
+    conexao.close()
+
+
+def test_conexao_parada_e_encerrada_pelo_timeout(api):
+    url, _ = api
+    porta = int(url.rsplit(":", 1)[1])
+    with socket.create_connection(("127.0.0.1", porta), timeout=TEMPO_LIMITE_TESTE + 3) as s:
+        # Não envia nada: o servidor deve fechar a conexão sozinho.
+        assert s.recv(1) == b""
 
 
 def test_rota_desconhecida_retorna_404(api):

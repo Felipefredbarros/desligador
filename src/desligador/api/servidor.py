@@ -16,6 +16,7 @@ log = logging.getLogger(__name__)
 
 PASTA_WEB = Path(__file__).resolve().parent.parent / "web"
 TAMANHO_MAXIMO_CORPO = 4096
+TEMPO_LIMITE_CONEXAO = 10  # segundos
 
 _TIPOS = {
     ".html": "text/html; charset=utf-8",
@@ -40,12 +41,16 @@ def _arquivo_web(caminho: str) -> Path | None:
     return permitidos.get(nome)
 
 
-def criar_servidor(host: str, porta: int, deps: Dependencias) -> ThreadingHTTPServer:
+def criar_servidor(
+    host: str, porta: int, deps: Dependencias, tempo_limite: float = TEMPO_LIMITE_CONEXAO
+) -> ThreadingHTTPServer:
     permitidos = hosts_permitidos(host)
 
     class Manipulador(BaseHTTPRequestHandler):
         server_version = "Desligador"
         sys_version = ""
+        # Fecha conexões paradas, para ninguém travar as threads do servidor.
+        timeout = tempo_limite
 
         def do_GET(self) -> None:
             self._atender("GET")
@@ -70,7 +75,13 @@ def criar_servidor(host: str, porta: int, deps: Dependencias) -> ThreadingHTTPSe
                     self._enviar_json(recusa)
                     return
 
-            tamanho = int(self.headers.get("Content-Length") or 0)
+            try:
+                tamanho = int(self.headers.get("Content-Length") or 0)
+            except ValueError:
+                tamanho = -1
+            if tamanho < 0:
+                self._enviar_json(Resposta(400, {"erro": "Content-Length inválido."}))
+                return
             if tamanho > TAMANHO_MAXIMO_CORPO:
                 self._enviar_json(Resposta(413, {"erro": "Requisição grande demais."}))
                 return
