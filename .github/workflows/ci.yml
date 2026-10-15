@@ -5,6 +5,10 @@ on:
     branches: [main]
   pull_request:
 
+# Só leitura: o CI não precisa escrever no repositório.
+permissions:
+  contents: read
+
 jobs:
   testes:
     runs-on: windows-latest

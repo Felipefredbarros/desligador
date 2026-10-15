@@ -113,6 +113,7 @@ py -m venv .venv
 - [docs/arquitetura.md](docs/arquitetura.md): camadas e fluxo de uma requisição
 - [docs/decisoes/](docs/decisoes/): registro das decisões de arquitetura (ADRs)
 - [CHANGELOG.md](CHANGELOG.md)
+- [SECURITY.md](SECURITY.md): como avisar uma falha de segurança (em privado)
 
 ## Licença
 

@@ -1,0 +1,10 @@
+# Mantém as GitHub Actions do CI atualizadas. O app não tem dependências em produção
+# (só biblioteca padrão); as de desenvolvimento (pytest, ruff) ficam fora daqui.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+    commit-message:
+      prefix: "ci"
