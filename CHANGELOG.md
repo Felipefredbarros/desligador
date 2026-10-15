@@ -5,6 +5,9 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e
 
 ## [Não lançado]
 
+### Segurança
+- Login por PIN uma vez por aparelho, com cookie de sessão `HttpOnly` e `SameSite=Strict` (30 dias). O PIN não vai mais em cada pedido nem fica salvo no celular: a opção "Lembrar neste aparelho", que o guardava em texto puro no navegador, saiu, e a página apaga o PIN salvo por versões antigas. `--trocar-pin` encerra todas as sessões. Ver ADR 0005.
+
 ### Corrigido
 - Logo depois do logon, se o IP do Tailscale já aparecia mas ainda não aceitava conexões, o servidor desistia de ouvir nele e o celular não alcançava o PC. Agora ele tenta de novo a cada 15 s.
 

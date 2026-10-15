@@ -43,3 +43,13 @@ def test_pin_invalido_nao_altera_nada(tmp_path):
     codigo, _ = rodar(caminho, ["12ab"])
     assert codigo == 1
     assert not caminho.exists()
+
+
+def test_trocar_pin_encerra_todas_as_sessoes(tmp_path):
+    caminho = tmp_path / "config.json"
+    sessoes = tmp_path / "sessoes.json"
+    sessoes.write_text('{"sessoes": []}', encoding="utf-8")
+    codigo, saida = rodar(caminho, ["654321", "654321"])
+    assert codigo == 0
+    assert not sessoes.exists()
+    assert "sessões foram encerradas" in saida

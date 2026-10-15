@@ -45,8 +45,20 @@ body {
   gap: 14px;
 }
 
+[hidden] { display: none !important; }
+
 .topo { display: flex; align-items: center; gap: 10px; }
-.topo h1 { font-size: 1.4rem; margin: 0; }
+.topo h1 { font-size: 1.4rem; margin: 0; flex: 1; }
+.pilha { display: flex; flex-direction: column; gap: 14px; }
+.botao-link {
+  font: inherit;
+  color: var(--texto-suave);
+  background: none;
+  border: 0;
+  padding: 8px;
+  cursor: pointer;
+  text-decoration: underline;
+}
 
 .cartao {
   background: var(--cartao);
@@ -90,8 +102,6 @@ input:focus-visible, .botao:focus-visible {
   outline-offset: 2px;
 }
 
-.lembrar { display: flex; align-items: center; gap: 8px; color: var(--texto-suave); }
-.lembrar input { width: 18px; height: 18px; }
 
 .grade { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
 .personalizado { display: flex; gap: 10px; }

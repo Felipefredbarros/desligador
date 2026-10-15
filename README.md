@@ -61,6 +61,7 @@ Na primeira instalação o script pede para você **definir o PIN** (ou deixar v
 | Firewall | A porta 8765 só aceita a faixa do Tailscale (`100.64.0.0/10`). |
 | PIN | Mínimo de 6 dígitos, comparação em tempo constante, bloqueio de 5 min após 5 erros. |
 | Hash do PIN | O `config.json` guarda só o hash (PBKDF2-SHA256, 600 mil iterações), nunca o PIN. Ele fica em `%APPDATA%\Desligador`, fora do repositório. |
+| Sessão | O PIN é digitado uma vez por aparelho e vira um cookie `HttpOnly` e `SameSite=Strict`, válido por 30 dias; o celular não guarda o PIN, e no disco fica só o SHA-256 do token. Trocar o PIN encerra todas as sessões. |
 | Sites maliciosos | O servidor só aceita pedidos endereçados a este PC (`Host`/`Origin`) e em JSON, o que bloqueia ataques de CSRF e DNS rebinding vindos de outras páginas abertas no navegador. |
 | Conexões | Tempo limite de 10 s por conexão e corpo limitado a 4 KB. |
 
@@ -76,7 +77,7 @@ Stop-ScheduledTask Desligador; Start-ScheduledTask Desligador
 **Recomendações:**
 - Ative a **verificação em duas etapas** na conta que você usa para entrar no Tailscale (Google, GitHub, Microsoft...). Quem entra nessa conta entra na sua rede.
 - No [painel do Tailscale](https://login.tailscale.com/admin/machines), abra o PC e use **Disable key expiry**. Sem isso, o PC sai da rede depois de alguns meses e o app para de funcionar.
-- Mantenha o celular com bloqueio de tela. Se ele não tiver, não marque "Lembrar neste aparelho".
+- Mantenha o celular com bloqueio de tela: quem pega o celular desbloqueado usa a sessão aberta. Use **Sair** na página se for emprestar o aparelho.
 
 **Mais restrição (opcional):** se outras pessoas usam a sua rede do Tailscale, crie uma regra em *Access Controls* no [painel do Tailscale](https://login.tailscale.com/admin/acls) permitindo a porta `8765` do PC só para os seus aparelhos. Veja a [documentação de ACLs](https://tailscale.com/kb/1018/acls).
 

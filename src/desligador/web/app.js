@@ -1,26 +1,22 @@
 "use strict";
 
-const CHAVE_PIN = "desligador.pin";
+// O PIN é digitado uma vez: o servidor devolve um cookie de sessão HttpOnly, que o
+// JavaScript não lê (docs/decisoes/0005). Nada de PIN no navegador.
+const PIN_ANTIGO = "desligador.pin"; // até a 0.2.0 o PIN ficava aqui, em texto puro
 const INTERVALO_STATUS_MS = 30_000;
 
 const el = (id) => document.getElementById(id);
 let fimContagem = null;
 let timerContagem = null;
 
-// ---------- PIN salvo (opcional) ----------
-
-function lerPinSalvo() {
-  try { return localStorage.getItem(CHAVE_PIN); } catch { return null; }
-}
-
-function lembrarPin(pin) {
-  try {
-    if (el("lembrar").checked) localStorage.setItem(CHAVE_PIN, pin);
-    else localStorage.removeItem(CHAVE_PIN);
-  } catch { /* armazenamento indisponível: segue sem lembrar */ }
-}
-
 // ---------- API ----------
+
+class ErroApi extends Error {
+  constructor(mensagem, status) {
+    super(mensagem);
+    this.status = status;
+  }
+}
 
 async function chamarApi(caminho, corpo) {
   const opcoes = corpo === undefined ? {} : {
@@ -28,9 +24,15 @@ async function chamarApi(caminho, corpo) {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(corpo),
   };
-  const resposta = await fetch(caminho, opcoes);
+  let resposta;
+  try {
+    resposta = await fetch(caminho, opcoes);
+  } catch {
+    // fetch lança TypeError quando não alcança o servidor (PC desligado, sem Tailscale…).
+    throw new ErroApi("Sem conexão com o PC.", 0);
+  }
   const dados = await resposta.json().catch(() => ({}));
-  if (!resposta.ok) throw new Error(dados.erro || `Erro ${resposta.status}`);
+  if (!resposta.ok) throw new ErroApi(dados.erro || `Erro ${resposta.status}`, resposta.status);
   return dados;
 }
 
@@ -40,6 +42,19 @@ function mostrarMensagem(texto, tipo = "info") {
   const mensagem = el("mensagem");
   mensagem.textContent = texto;
   mensagem.dataset.tipo = tipo;
+}
+
+function mostrarLogin() {
+  el("tela-app").hidden = true;
+  el("sair").hidden = true;
+  el("tela-login").hidden = false;
+  el("pin").focus();
+}
+
+function mostrarApp() {
+  el("tela-login").hidden = true;
+  el("tela-app").hidden = false;
+  el("sair").hidden = false;
 }
 
 function formatarRestante(segundos) {
@@ -86,7 +101,13 @@ function definirOcupado(ocupado) {
 async function carregarStatus() {
   try {
     mostrarStatus(await chamarApi("/api/status"));
-  } catch {
+    mostrarApp();
+  } catch (erro) {
+    if (erro.status === 401) {
+      mostrarLogin();
+      return;
+    }
+    mostrarApp();
     el("status-texto").textContent = "Sem conexão com o PC";
     el("contagem").hidden = true;
     el("cancelar").hidden = true;
@@ -95,27 +116,14 @@ async function carregarStatus() {
 
 // ---------- Ações ----------
 
-function pinDigitado() {
-  const pin = el("pin").value.trim();
-  if (!pin) {
-    mostrarMensagem("Digite o PIN.", "erro");
-    el("pin").focus();
-    return null;
-  }
-  return pin;
-}
-
-async function executar(caminho, extra, textoSucesso) {
-  const pin = pinDigitado();
-  if (!pin) return;
+async function executar(caminho, corpo, textoSucesso) {
   definirOcupado(true);
   try {
-    mostrarStatus(await chamarApi(caminho, { pin, ...extra }));
-    lembrarPin(pin);
+    mostrarStatus(await chamarApi(caminho, corpo));
     mostrarMensagem(textoSucesso, "sucesso");
   } catch (erro) {
-    // fetch lança TypeError quando não alcança o servidor (PC desligado, sem Tailscale…).
-    mostrarMensagem(erro instanceof TypeError ? "Sem conexão com o PC." : erro.message, "erro");
+    if (erro.status === 401) mostrarLogin();
+    mostrarMensagem(erro.message, "erro");
   } finally {
     definirOcupado(false);
   }
@@ -127,14 +135,27 @@ function agendar(minutos) {
 
 // ---------- Inicialização ----------
 
-const pinSalvo = lerPinSalvo();
-if (pinSalvo) {
-  el("pin").value = pinSalvo;
-  el("lembrar").checked = true;
-}
+try { localStorage.removeItem(PIN_ANTIGO); } catch { /* armazenamento indisponível */ }
 
-el("lembrar").addEventListener("change", () => {
-  if (!el("lembrar").checked) lembrarPin("");
+el("form-login").addEventListener("submit", async (evento) => {
+  evento.preventDefault();
+  definirOcupado(true);
+  try {
+    mostrarStatus(await chamarApi("/api/entrar", { pin: el("pin").value.trim() }));
+    el("pin").value = "";
+    mostrarMensagem("");
+    mostrarApp();
+  } catch (erro) {
+    mostrarMensagem(erro.message, "erro");
+  } finally {
+    definirOcupado(false);
+  }
+});
+
+el("sair").addEventListener("click", async () => {
+  await chamarApi("/api/sair", {}).catch(() => {});
+  mostrarMensagem("");
+  mostrarLogin();
 });
 
 document.querySelectorAll("[data-minutos]").forEach((botao) => {
@@ -162,8 +183,8 @@ el("cancelar").addEventListener("click", () => {
 });
 
 document.addEventListener("visibilitychange", () => {
-  if (!document.hidden) carregarStatus();
+  if (!document.hidden && el("tela-login").hidden) carregarStatus();
 });
 
 carregarStatus();
-setInterval(carregarStatus, INTERVALO_STATUS_MS);
+setInterval(() => { if (el("tela-login").hidden) carregarStatus(); }, INTERVALO_STATUS_MS);

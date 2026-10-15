@@ -32,16 +32,17 @@ A troca de `EnergiaWindows` por `EnergiaFalsa` acontece só em `__main__.py` (fl
 
 ## Fluxo de uma requisição: “desligar em 30 min”
 
-1. O celular envia `POST /api/desligar` com `{"pin": "12345678", "minutos": 30}`.
+0. Uma vez por aparelho, a página faz `POST /api/entrar` com `{"pin": "..."}`: o PIN é conferido (passo 5) e a resposta traz o cookie de sessão `desligador_sessao` (`HttpOnly`, `SameSite=Strict`, 30 dias). O servidor guarda só o SHA-256 do token. Ver [ADR 0005](decisoes/0005-sessao-com-cookie.md).
+1. O celular envia `POST /api/desligar` com `{"minutos": 30}` e o cookie de sessão.
 2. `servidor.py` confere se o `Host` é deste PC (403 se não for). Por ser POST, confere também o `Origin` (403) e se o corpo é `application/json` (415).
 3. `servidor.py` valida o `Content-Length`, limita o corpo a 4 KB e repassa os bytes para `rotas.tratar`.
 4. `rotas.py` decodifica o JSON e chama a rota `desligar`.
-5. `ServicoAutenticacao.verificar` calcula o PBKDF2 do PIN e compara com o hash salvo em tempo constante; erros seguidos bloqueiam o IP.
+5. A rota confere a sessão do cookie (401 sem ela). No login, `ServicoAutenticacao.verificar` calcula o PBKDF2 do PIN e compara com o hash salvo em tempo constante; erros seguidos bloqueiam o IP.
 6. `ServicoDesligamento.agendar` cria um `Agendamento`, que valida os minutos, cancela qualquer agendamento pendente e chama `Energia.agendar_desligamento(1800)`.
 7. `EnergiaWindows` executa `shutdown /s /f /t 1800`.
 8. A resposta traz o estado atual: `{"agendado": true, "desliga_em": "...", "segundos_restantes": 1800}`.
 
-Erros conhecidos viram status HTTP em `rotas._STATUS_POR_ERRO`: 400 (entrada inválida), 401 (PIN), 429 (bloqueio), 500 (Windows recusou).
+Erros conhecidos viram status HTTP em `rotas._STATUS_POR_ERRO`: 400 (entrada inválida), 401 (sem sessão ou PIN errado), 429 (bloqueio), 500 (Windows recusou).
 
 ### Por que validar Host, Origin e Content-Type
 O navegador obedece a qualquer página aberta. Sem essas checagens, um site malicioso poderia:

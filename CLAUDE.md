@@ -11,11 +11,12 @@ Servidor Python que roda no PC com Windows e permite **desligar, agendar ou canc
 | entrada | `__main__.py` | Lê argumentos, configura log, monta dependências, sobe servidores |
 | entrada | `trocar_pin.py` | Comando `--trocar-pin` (console, `getpass`) |
 | config | `config.py` | Lê/cria/migra `%APPDATA%\Desligador\config.json` (`pin_hash`, porta) |
-| api | `api/rotas.py` | Rotas JSON, `Dependencias`, mapeamento exceção → status HTTP |
+| api | `api/rotas.py` | Rotas JSON (login, sessão), `Dependencias`, mapeamento exceção → status HTTP |
 | api | `api/servidor.py` | Transporte HTTP (stdlib), arquivos estáticos, timeout, cabeçalhos de segurança |
 | api | `api/protecao.py` | Validação de `Host`/`Origin` (CSRF e DNS rebinding) |
 | serviços | `servicos/desligamento.py` | Agendar / cancelar / consultar (usa `Energia` injetada) |
 | serviços | `servicos/autenticacao.py` | Confere o PIN contra o hash + bloqueio por IP |
+| serviços | `servicos/sessoes.py` | Sessões do cookie de login (só o SHA-256 do token fica salvo) |
 | domínio | `dominio/agendamento.py` | `Agendamento`, validação de minutos (regras puras) |
 | domínio | `dominio/pin.py` | Formato do PIN, geração e hash PBKDF2-SHA256 |
 | plataforma | `plataforma/energia.py` | `Energia` (Protocol), `EnergiaWindows` (`shutdown /s /f`), `EnergiaFalsa` |

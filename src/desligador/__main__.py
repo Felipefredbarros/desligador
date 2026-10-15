@@ -17,6 +17,7 @@ from desligador.plataforma.energia import EnergiaFalsa, EnergiaWindows
 from desligador.plataforma.rede import descobrir_ip_tailscale
 from desligador.servicos.autenticacao import ServicoAutenticacao
 from desligador.servicos.desligamento import ServicoDesligamento
+from desligador.servicos.sessoes import ServicoSessoes
 
 log = logging.getLogger("desligador")
 
@@ -132,6 +133,7 @@ def main(argv: list[str] | None = None) -> int:
     deps = Dependencias(
         desligamento=ServicoDesligamento(energia),
         autenticacao=ServicoAutenticacao(cfg.pin_hash),
+        sessoes=ServicoSessoes(args.config.with_name(trocar_pin.ARQUIVO_SESSOES)),
     )
 
     try:

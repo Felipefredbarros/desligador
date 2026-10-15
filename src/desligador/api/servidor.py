@@ -4,13 +4,14 @@ from __future__ import annotations
 
 import json
 import logging
+from http.cookies import CookieError, SimpleCookie
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import urlsplit
 
 from desligador.api import rotas
 from desligador.api.protecao import host_permitido, hosts_permitidos, origem_permitida
-from desligador.api.rotas import Dependencias, Resposta
+from desligador.api.rotas import COOKIE, Dependencias, Pedido, Resposta
 
 log = logging.getLogger(__name__)
 
@@ -58,6 +59,13 @@ def criar_servidor(
         def do_POST(self) -> None:
             self._atender("POST")
 
+        def _sessao(self) -> str | None:
+            try:
+                biscoito = SimpleCookie(self.headers.get("Cookie") or "")
+            except CookieError:
+                return None
+            return biscoito[COOKIE].value if COOKIE in biscoito else None
+
         def _atender(self, metodo: str) -> None:
             if not host_permitido(self.headers.get("Host"), permitidos):
                 log.warning("Host recusado: %r", self.headers.get("Host"))
@@ -86,7 +94,8 @@ def criar_servidor(
                 self._enviar_json(Resposta(413, {"erro": "Requisição grande demais."}))
                 return
             corpo = self.rfile.read(tamanho) if tamanho > 0 else b""
-            self._enviar_json(rotas.tratar(metodo, caminho, corpo, self.client_address[0], deps))
+            pedido = Pedido(origem=self.client_address[0], sessao=self._sessao())
+            self._enviar_json(rotas.tratar(metodo, caminho, corpo, pedido, deps))
 
         def _validar_post(self) -> Resposta | None:
             if not origem_permitida(self.headers.get("Origin"), permitidos):
@@ -106,13 +115,16 @@ def criar_servidor(
 
         def _enviar_json(self, resposta: Resposta) -> None:
             conteudo = json.dumps(resposta.dados, ensure_ascii=False).encode()
-            self._enviar(resposta.status, "application/json; charset=utf-8", conteudo)
+            tipo = "application/json; charset=utf-8"
+            self._enviar(resposta.status, tipo, conteudo, resposta.cabecalhos)
 
-        def _enviar(self, status: int, tipo: str, conteudo: bytes) -> None:
+        def _enviar(
+            self, status: int, tipo: str, conteudo: bytes, extras: tuple[tuple[str, str], ...] = ()
+        ) -> None:
             self.send_response(status)
             self.send_header("Content-Type", tipo)
             self.send_header("Content-Length", str(len(conteudo)))
-            for nome, valor in _CABECALHOS_SEGURANCA.items():
+            for nome, valor in (*_CABECALHOS_SEGURANCA.items(), *extras):
                 self.send_header(nome, valor)
             self.end_headers()
             self.wfile.write(conteudo)

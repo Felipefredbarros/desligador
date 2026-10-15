@@ -15,22 +15,26 @@
     <header class="topo">
       <img src="icone.svg" alt="" width="36" height="36">
       <h1>Desligador</h1>
+      <button id="sair" class="botao-link" type="button" hidden>Sair</button>
     </header>
+
+    <!-- O PIN é digitado uma vez e vira um cookie de sessão (docs/decisoes/0005). -->
+    <section id="tela-login" class="cartao" hidden>
+      <form id="form-login" class="pilha">
+        <label class="rotulo" for="pin">PIN</label>
+        <input id="pin" type="password" inputmode="numeric" pattern="[0-9]*"
+               autocomplete="current-password" placeholder="••••••••" required>
+        <button class="botao" type="submit">Entrar</button>
+      </form>
+    </section>
+
+    <div id="tela-app" class="pilha" hidden>
 
     <section class="cartao" aria-live="polite">
       <p class="rotulo">Status</p>
       <p class="status-texto" id="status-texto">Carregando…</p>
       <p class="contagem" id="contagem" hidden></p>
       <button class="botao secundario" id="cancelar" type="button" hidden>Cancelar desligamento</button>
-    </section>
-
-    <section class="cartao">
-      <label class="rotulo" for="pin">PIN</label>
-      <input id="pin" type="password" inputmode="numeric" pattern="[0-9]*"
-             autocomplete="current-password" placeholder="••••••••">
-      <label class="lembrar">
-        <input type="checkbox" id="lembrar"> Lembrar neste aparelho
-      </label>
     </section>
 
     <section class="cartao">
@@ -49,6 +53,7 @@
     </section>
 
     <button class="botao perigo" id="desligar-agora" type="button">Desligar agora</button>
+    </div>
     <p class="mensagem" id="mensagem" role="status"></p>
   </main>
 </body>
