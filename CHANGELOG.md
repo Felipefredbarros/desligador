@@ -3,6 +3,11 @@
 Todas as mudanças relevantes deste projeto são registradas aqui.
 Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e versionamento [SemVer](https://semver.org/lang/pt-BR/).
 
+## [Não lançado]
+
+### Corrigido
+- Logo depois do logon, se o IP do Tailscale já aparecia mas ainda não aceitava conexões, o servidor desistia de ouvir nele e o celular não alcançava o PC. Agora ele tenta de novo a cada 15 s.
+
 ## [0.2.0] - 2026-10-10
 
 ### Segurança

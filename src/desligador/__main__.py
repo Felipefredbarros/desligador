@@ -6,6 +6,7 @@ import argparse
 import logging
 import sys
 import threading
+from collections.abc import Callable
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
 
@@ -67,21 +68,39 @@ def _iniciar_em_segundo_plano(host: str, porta: int, deps: Dependencias) -> None
     log.info("Ouvindo em http://%s:%s", host, porta)
 
 
-def _aguardar_tailscale(porta: int, deps: Dependencias, parar: threading.Event) -> None:
-    """Fica tentando achar o IP do Tailscale (ele pode subir depois do Windows)."""
+def esperar_tailscale(
+    descobrir: Callable[[], str | None],
+    servir: Callable[[str], None],
+    parar: threading.Event,
+    intervalo: float = INTERVALO_BUSCA_TAILSCALE,
+) -> str | None:
+    """Tenta até ouvir no IP do Tailscale, que pode subir depois do Windows; devolve o IP.
+
+    Logo depois do logon o IP já aparece, mas ainda não aceita conexões (WinError 10049,
+    visto em 15/10/2026). Antes o servidor desistia; agora tenta de novo.
+    """
     avisou = False
     while not parar.is_set():
-        ip = descobrir_ip_tailscale()
+        ip = descobrir()
         if ip:
             try:
-                _iniciar_em_segundo_plano(ip, porta, deps)
+                servir(ip)
+                return ip
             except OSError as erro:
-                log.error("Não foi possível ouvir em %s:%s: %s", ip, porta, erro)
-            return
+                motivo = f"ainda não dá para ouvir em {ip} ({erro})"
+        else:
+            motivo = "Tailscale não encontrado"
         if not avisou:
-            log.warning("Tailscale não encontrado; tentando a cada %ss", INTERVALO_BUSCA_TAILSCALE)
+            log.warning("%s; tentando a cada %ss", motivo, intervalo)
             avisou = True
-        parar.wait(INTERVALO_BUSCA_TAILSCALE)
+        parar.wait(intervalo)
+    return None
+
+
+def _aguardar_tailscale(porta: int, deps: Dependencias, parar: threading.Event) -> None:
+    esperar_tailscale(
+        descobrir_ip_tailscale, lambda ip: _iniciar_em_segundo_plano(ip, porta, deps), parar
+    )
 
 
 def main(argv: list[str] | None = None) -> int:
